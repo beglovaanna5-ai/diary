@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электронный дневник</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --yale-blue: #0D3B66; --lemon-chiffon: #FAF0CA; --white: #ffffff; --text-dark: #1a1a1a; }
+        body { margin: 0; font-family: 'Roboto', sans-serif; background-color: var(--lemon-chiffon); color: var(--text-dark); }
+        header { background-color: var(--yale-blue); color: var(--lemon-chiffon); padding: 40px 20px; text-align: center; position: relative; overflow: hidden; }
+        header h1 { font-family: 'Oswald', sans-serif; font-size: 2.5rem; margin: 0; letter-spacing: 2px; }
+        header p { margin: 5px 0 0; opacity: 0.8; font-size: 1.1rem; }
+        .plant-icon { position: absolute; width: 80px; height: 80px; opacity: 0.15; fill: var(--lemon-chiffon); }
+        .top-left { top: 10px; left: 10px; }
+        .bottom-right { bottom: 10px; right: 10px; transform: rotate(45deg); }
+        .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
+        
+        .student-panel { background: rgba(255, 255, 255, 0.7); padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        .student-panel select { padding: 10px; font-size: 16px; border: 2px solid var(--yale-blue); border-radius: 6px; outline: none; width: 80%; max-width: 350px; background: #fff; }
+        .add-student-btn { margin-top: 10px; padding: 8px 15px; background: #4CAF50; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .add-student-btn:hover { background: #45a049; }
+        
+        .subject-card { background: var(--white); border-radius: 12px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--yale-blue); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .subject-title { font-family: 'Oswald', sans-serif; font-size: 1.5rem; margin: 0; color: var(--yale-blue); }
+        .grade-input { width: 70px; text-align: center; border: 1px solid #ccc; border-radius: 6px; padding: 5px; font-size: 18px; }
+        .grade-date { font-size: 12px; color: gray; margin-top: 5px; display: block; text-align: right; width: 100%; }
+
+        @media (max-width: 600px) { header h1 { font-size: 2rem; } .subject-card { flex-direction: column; align-items: flex-start; } .grade-input { width: 100%; } .grade-date { text-align: left; } }
+    </style>
+</head>
+<body>
+    <header>
+        <svg class="plant-icon top-left" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+        <svg class="plant-icon bottom-right" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+        <h1>ЭЛЕКТРОННЫЙ ДНЕВНИК</h1>
+        <p>Выбери ученика и ставь оценки</p>
+    </header>
+
+    <div class="container">
+        <div class="student-panel">
+            <select id="studentSelect" onchange="loadGrades()">
+                <option value="">-- Выберите ученика --</option>
+            </select>
+            <br><br>
+            <input type="text" id="newStudentInput" placeholder="Имя нового ученика" style="padding:8px; width:60%;">
+            <button class="add-student-btn" onclick="addStudent()">+ Добавить</button>
+        </div>
+        <div id="subjectsList"></div>
+    </div>
+
+    <script>
+        // ⚠️ ВСТАВЬ СВОИ КЛЮЧИ (ОНИ УЖЕ СТОЯТ)
+        const SUPABASE_URL = 'https://jaxoshpwsgpajhmpbwgp.supabase.co'; 
+        const SUPABASE_ANON_KEY = 'sb_publishable_a_jzk25d9zzKjMAoGlvqxQ_KmmVWgm'; 
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function loadStudents() {
+            const { data, error } = await supabase.from('journal').select('student_name');
+            if (error) { alert('Ошибка подключения: ' + error.message); return; }
+            if (!data || data.length === 0) return;
+            
+            const uniqueStudents = [...new Set(data.map(item => item.student_name))];
+            const select = document.getElementById('studentSelect');
+            select.innerHTML = '<option value="">-- Выберите ученика --</option>';
+            uniqueStudents.forEach(name => {
+                if(name && name.trim() !== '') {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        async function loadGrades() {
+            const student = document.getElementById('studentSelect').value;
+            const list = document.getElementById('subjectsList');
+            list.innerHTML = '';
+            if (!student) return;
+
+            const { data, error } = await supabase.from('journal').select('*').eq('student_name', student);
+            if (error) return;
+
+            data.forEach(record => {
+                const card = document.createElement('div');
+                card.className = 'subject-card';
+                const dateDisplay = record.date ? record.date : 'Нет даты';
+                card.innerHTML = `
+                    <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                        <h3 class="subject-title">${record.subject}</h3>
+                        <div>
+                            <input type="number" class="grade-input" min="1" max="5" value="${record.grade || ''}" 
+                                   onchange="updateGrade('${record.id}', this.value)">
+                            <span class="grade-date">${dateDisplay}</span>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        async function updateGrade(id, val) {
+            if(val < 1 || val > 5) { alert('Ставь оценки только от 1 до 5!'); return; }
+            
+            // Автоматически берем сегодняшнюю дату
+            const today = new Date().toLocaleDateString('ru-RU');
+            
+            // Обновляем и ОЦЕНКУ, и ДАТУ в базе одновременно
+            await supabase.from('journal').update({ 
+                grade: parseInt(val),
+                date: today 
+            }).eq('id', id);
+        }
+
+        async function addStudent() {
+            const name = document.getElementById('newStudentInput').value.trim();
+            if (!name) return alert('Введи имя ученика!');
+            
+            const { data } = await supabase.from('journal').select('student_name').eq('student_name', name);
+            if (data.length > 0) return alert('Такой ученик уже есть!');
+            
+            // Список предметов
+            const subjects = ['Математика', 'Русский язык', 'Литература', 'Биология', 'История'];
+            const newRecords = subjects.map(sub => ({ student_name: name, subject: sub, grade: null, date: null }));
+            
+            const { error } = await supabase.from('journal').insert(newRecords);
+            if (error) { alert('Ошибка: ' + error.message); return; }
+            
+            document.getElementById('newStudentInput').value = '';
+            loadStudents();
+            document.getElementById('studentSelect').value = name;
+            loadGrades();
+        }
+
+        loadStudents();
+    </script>
+</body>
+</html>
