@@ -51,7 +51,6 @@
     </div>
 
     <script>
-        // ⚠️ ВСТАВЬ СВОИ КЛЮЧИ (ОНИ УЖЕ СТОЯТ)
         const SUPABASE_URL = 'https://jaxoshpwsgpajhmpbwgp.supabase.co'; 
         const SUPABASE_ANON_KEY = 'sb_publishable_a_jzk25d9zzKjMAoGlvqxQ_KmmVWgm'; 
 
@@ -59,8 +58,14 @@
 
         async function loadStudents() {
             const { data, error } = await supabase.from('journal').select('student_name');
-            if (error) { alert('Ошибка подключения: ' + error.message); return; }
-            if (!data || data.length === 0) return;
+            if (error) { 
+                alert('Ошибка подключения (проверь RLS): ' + error.message); 
+                return; 
+            }
+            if (!data || data.length === 0) {
+                alert('База пуста! Добавь ученика через кнопку "Добавить"');
+                return;
+            }
             
             const uniqueStudents = [...new Set(data.map(item => item.student_name))];
             const select = document.getElementById('studentSelect');
@@ -87,7 +92,7 @@
             data.forEach(record => {
                 const card = document.createElement('div');
                 card.className = 'subject-card';
-                const dateDisplay = record.date ? record.date : 'Нет даты';
+                const dateDisplay = record.date ? record.date : '';
                 card.innerHTML = `
                     <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
                         <h3 class="subject-title">${record.subject}</h3>
@@ -104,15 +109,8 @@
 
         async function updateGrade(id, val) {
             if(val < 1 || val > 5) { alert('Ставь оценки только от 1 до 5!'); return; }
-            
-            // Автоматически берем сегодняшнюю дату
             const today = new Date().toLocaleDateString('ru-RU');
-            
-            // Обновляем и ОЦЕНКУ, и ДАТУ в базе одновременно
-            await supabase.from('journal').update({ 
-                grade: parseInt(val),
-                date: today 
-            }).eq('id', id);
+            await supabase.from('journal').update({ grade: parseInt(val), date: today }).eq('id', id);
         }
 
         async function addStudent() {
@@ -122,12 +120,14 @@
             const { data } = await supabase.from('journal').select('student_name').eq('student_name', name);
             if (data.length > 0) return alert('Такой ученик уже есть!');
             
-            // Список предметов
             const subjects = ['Математика', 'Русский язык', 'Литература', 'Биология', 'История'];
             const newRecords = subjects.map(sub => ({ student_name: name, subject: sub, grade: null, date: null }));
             
             const { error } = await supabase.from('journal').insert(newRecords);
-            if (error) { alert('Ошибка: ' + error.message); return; }
+            if (error) { 
+                alert('Ошибка: ' + error.message); 
+                return; 
+            }
             
             document.getElementById('newStudentInput').value = '';
             loadStudents();
